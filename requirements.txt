@@ -1,0 +1,4 @@
+langchain_community
+langchain_groq
+fastapi
+langchain_core

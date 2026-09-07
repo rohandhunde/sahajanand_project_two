@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Minutes — meeting audio, distilled</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12151b;
+    --surface:#1a1e27;
+    --surface-2:#20242e;
+    --border:#2b303b;
+    --text:#edeef0;
+    --text-muted:#98a0ac;
+    --accent:#e8a33d;
+    --accent-soft:rgba(232,163,61,.14);
+    --danger:#e2574c;
+    --danger-soft:rgba(226,87,76,.12);
+    --good:#4fb0ae;
+    --good-soft:rgba(79,176,174,.12);
+    --info:#7c93f5;
+    --info-soft:rgba(124,147,245,.12);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Inter",system-ui,sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent-soft);color:var(--accent);}
+
+  a{color:inherit;}
+
+  h1,h2,h3,.serif{
+    font-family:"Fraunces",serif;
+    font-weight:500;
+    letter-spacing:-0.01em;
+  }
+
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:0 24px 96px;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:28px 0 20px;
+    border-bottom:1px solid var(--border);
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family:"Fraunces",serif;
+    font-size:19px;
+    font-weight:500;
+  }
+  .brand svg{flex-shrink:0;}
+
+  .status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    color:var(--text-muted);
+  }
+  .status .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--text-muted);
+    transition:background .3s ease, box-shadow .3s ease;
+  }
+  .status.idle .dot{background:#54596a;}
+  .status.busy .dot{background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft);animation:pulse 1.1s ease-in-out infinite;}
+  .status.done .dot{background:var(--good);box-shadow:0 0 0 4px var(--good-soft);}
+  .status.error .dot{background:var(--danger);box-shadow:0 0 0 4px var(--danger-soft);}
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:.45;}
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    padding:56px 0 40px;
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    gap:40px;
+    align-items:center;
+  }
+  .hero h1{
+    font-size:42px;
+    line-height:1.1;
+    margin:0 0 14px;
+  }
+  .hero p{
+    color:var(--text-muted);
+    font-size:16px;
+    max-width:38ch;
+    margin:0;
+  }
+
+  .waveform{width:100%;height:110px;}
+  .waveform rect{
+    fill:var(--accent);
+    transform-origin:bottom;
+    animation:rise 1.4s ease-in-out infinite;
+  }
+  @keyframes rise{
+    0%,100%{transform:scaleY(.35);}
+    50%{transform:scaleY(1);}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .waveform rect{animation:none;transform:scaleY(.7);}
+    .status.busy .dot{animation:none;}
+  }
+
+  /* ---------- upload card ---------- */
+  .dropzone{
+    border:1px dashed var(--border);
+    border-radius:10px;
+    background:var(--surface);
+    padding:32px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    gap:12px;
+    cursor:pointer;
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .dropzone:hover,.dropzone.dragover{
+    border-color:var(--accent);
+    background:var(--surface-2);
+  }
+  .dropzone svg{color:var(--text-muted);}
+  .dropzone .primary{font-size:15px;font-weight:500;}
+  .dropzone .secondary{font-size:13px;color:var(--text-muted);}
+  .dropzone input{display:none;}
+
+  .file-row{
+    margin-top:16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:14px 16px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    display:none;
+  }
+  .file-row.show{display:flex;}
+  .file-info{display:flex;align-items:center;gap:10px;min-width:0;}
+  .file-info svg{flex-shrink:0;color:var(--accent);}
+  .file-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .file-size{font-size:12px;color:var(--text-muted);}
+
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    padding:11px 20px;
+    transition:transform .12s ease, opacity .2s ease, background .2s ease;
+  }
+  button:active{transform:scale(.97);}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+
+  .btn-primary{background:var(--accent);color:#1a1206;}
+  .btn-primary:hover:not(:disabled){background:#f0ae4f;}
+  .btn-ghost{background:transparent;color:var(--text-muted);border:1px solid var(--border);padding:10px 16px;}
+  .btn-ghost:hover{color:var(--text);border-color:var(--text-muted);}
+
+  .progress-line{
+    margin-top:18px;
+    display:none;
+    align-items:center;
+    gap:12px;
+    font-size:13px;
+    color:var(--text-muted);
+  }
+  .progress-line.show{display:flex;}
+  .spinner{
+    width:14px;height:14px;
+    border-radius:50%;
+    border:2px solid var(--border);
+    border-top-color:var(--accent);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .error-box{
+    display:none;
+    margin-top:18px;
+    padding:14px 16px;
+    background:var(--danger-soft);
+    border:1px solid rgba(226,87,76,.35);
+    border-radius:8px;
+    color:#f3a29c;
+    font-size:14px;
+  }
+  .error-box.show{display:block;}
+
+  /* ---------- results ---------- */
+  #results{display:none;margin-top:56px;}
+  #results.show{display:block;}
+
+  .results-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:22px;
+    padding-bottom:14px;
+    border-bottom:1px solid var(--border);
+  }
+  .results-head h2{font-size:22px;margin:0;}
+  .results-head .file-tag{font-size:13px;color:var(--text-muted);}
+
+  .summary-block{
+    font-family:"Fraunces",serif;
+    font-size:19px;
+    line-height:1.55;
+    color:var(--text);
+    padding-left:18px;
+    border-left:3px solid var(--accent);
+    margin-bottom:32px;
+  }
+
+  .decision-line{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    font-size:14px;
+    color:var(--text-muted);
+    margin-bottom:32px;
+    padding:12px 14px;
+    background:var(--good-soft);
+    border-radius:8px;
+  }
+  .decision-line strong{color:var(--good);font-weight:600;}
+
+  .grid-two{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:28px;
+    margin-bottom:32px;
+  }
+
+  .panel h3{
+    font-size:13px;
+    font-weight:600;
+    font-family:"Inter",sans-serif;
+    margin:0 0 12px;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel h3 .count{
+    font-size:11px;
+    color:var(--text-muted);
+    font-weight:500;
+  }
+
+  .list-plain{list-style:none;margin:0;padding:0;}
+  .list-plain li{
+    padding:9px 0;
+    border-bottom:1px solid var(--border);
+    font-size:14px;
+  }
+  .list-plain li:last-child{border-bottom:none;}
+
+  .list-plain.action li{padding-left:22px;position:relative;}
+  .list-plain.action li::before{
+    content:"";
+    position:absolute;left:0;top:15px;
+    width:9px;height:9px;
+    border:1.5px solid var(--accent);
+    border-radius:3px;
+  }
+
+  .list-plain.risk li{
+    padding-left:14px;
+    border-bottom:none;
+    border-left:2px solid var(--danger);
+    background:var(--danger-soft);
+    border-radius:0 6px 6px 0;
+    margin-bottom:6px;
+    padding-top:9px;padding-bottom:9px;
+  }
+
+  .list-plain.question li{padding-left:22px;position:relative;}
+  .list-plain.question li::before{
+    content:"?";
+    position:absolute;left:0;top:8px;
+    width:15px;height:15px;
+    font-size:11px;
+    line-height:15px;
+    text-align:center;
+    color:var(--info);
+    border:1px solid var(--info);
+    border-radius:50%;
+  }
+
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    font-size:13px;
+    padding:6px 12px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:100px;
+  }
+
+  .transcript-toggle{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:var(--surface);
+    border:1px solid var(--border);
+    padding:14px 16px;
+    border-radius:8px;
+    color:var(--text);
+    font-size:14px;
+    font-weight:500;
+  }
+  .transcript-toggle svg{transition:transform .2s ease;color:var(--text-muted);}
+  .transcript-toggle.open svg{transform:rotate(180deg);}
+
+  .transcript-body{
+    display:none;
+    margin-top:10px;
+    padding:18px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-size:14px;
+    color:var(--text-muted);
+    line-height:1.7;
+    white-space:pre-wrap;
+    max-height:340px;
+    overflow-y:auto;
+  }
+  .transcript-body.show{display:block;}
+
+  footer{
+    margin-top:64px;
+    padding-top:20px;
+    border-top:1px solid var(--border);
+    font-size:12px;
+    color:var(--text-muted);
+    display:flex;
+    justify-content:space-between;
+  }
+
+  @media (max-width:720px){
+    .hero{grid-template-columns:1fr;}
+    .grid-two{grid-template-columns:1fr;}
+    .hero h1{font-size:32px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e8a33d" stroke-width="1.6"/><circle cx="12" cy="12" r="3.2" fill="#e8a33d"/></svg>
+      Minutes
+    </div>
+    <div class="status idle" id="statusPill">
+      <span class="dot"></span>
+      <span id="statusText">Waiting for a recording</span>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>Say it once. Read it in seconds.</h1>
+      <p>Drop in a meeting recording and get a transcript, a summary, and every decision, risk and open question pulled out automatically.</p>
+    </div>
+    <svg class="waveform" viewBox="0 0 220 110" preserveAspectRatio="xMidYMid meet">
+      <!-- 24 bars, varied heights/delays for a non-mechanical feel -->
+      <g id="bars"></g>
+    </svg>
+  </section>
+
+  <section>
+    <div class="dropzone" id="dropzone">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      <div class="primary">Drop an audio file, or click to browse</div>
+      <div class="secondary">MP3, WAV, M4A — handled by Sarvam speech‑to‑text</div>
+      <input type="file" id="fileInput" accept="audio/*" />
+    </div>
+
+    <div class="file-row" id="fileRow">
+      <div class="file-info">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <div>
+          <div class="file-name" id="fileName">—</div>
+          <div class="file-size" id="fileSize">—</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-ghost" id="clearBtn" type="button">Remove</button>
+        <button class="btn-primary" id="analyzeBtn" type="button">Analyze meeting</button>
+      </div>
+    </div>
+
+    <div class="progress-line" id="progressLine">
+      <span class="spinner"></span>
+      <span id="progressText">Uploading audio…</span>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </section>
+
+  <section id="results">
+    <div class="results-head">
+      <h2>Minutes</h2>
+      <span class="file-tag" id="resultFileTag"></span>
+    </div>
+
+    <div class="summary-block" id="summaryText"></div>
+
+    <div class="decision-line" id="decisionLine" style="display:none;">
+      <strong>Decided —</strong>
+      <span id="decisionText"></span>
+    </div>
+
+    <div class="grid-two">
+      <div class="panel">
+        <h3>Action items <span class="count" id="actionCount"></span></h3>
+        <ul class="list-plain action" id="actionList"></ul>
+      </div>
+      <div class="panel">
+        <h3>Participants <span class="count" id="participantCount"></span></h3>
+        <div class="chips" id="participantChips"></div>
+      </div>
+    </div>
+
+    <div class="grid-two">
+      <div class="panel">
+        <h3>Risks &amp; blockers <span class="count" id="riskCount"></span></h3>
+        <ul class="list-plain risk" id="riskList"></ul>
+      </div>
+      <div class="panel">
+        <h3>Open questions <span class="count" id="questionCount"></span></h3>
+        <ul class="list-plain question" id="questionList"></ul>
+      </div>
+    </div>
+
+    <div class="panel">
+      <button class="transcript-toggle" id="transcriptToggle" type="button">
+        <span>Full transcript</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="transcript-body" id="transcriptBody"></div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Transcription by Sarvam AI · extraction by Groq</span>
+    <span id="apiTarget">/api/meetings/upload</span>
+  </footer>
+
+</div>
+
+<script>
+  // ---- build the hero waveform ----
+  const barsGroup = document.getElementById('bars');
+  const barCount = 24;
+  for (let i = 0; i < barCount; i++) {
+    const h = 20 + Math.abs(Math.sin(i * 0.7)) * 70;
+    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("x", i * 9 + 2);
+    rect.setAttribute("y", 110 - h);
+    rect.setAttribute("width", 5);
+    rect.setAttribute("height", h);
+    rect.setAttribute("rx", 2.5);
+    rect.style.animationDelay = (i * 0.045) + "s";
+    barsGroup.appendChild(rect);
+  }
+
+  // ---- endpoint (same-origin on the FastAPI server; override via ?api=) ----
+  // Relative /api/... 404s as HTML if this page is opened from a preview,
+  // Netlify, or the raw HTML file instead of http://127.0.0.1:8000
+  const params = new URLSearchParams(location.search);
+  const onLocalApi = (location.hostname === '127.0.0.1' || location.hostname === 'localhost')
+    && (location.port === '8000' || location.port === '');
+  const API_URL = params.get('api') || (onLocalApi
+    ? '/api/meetings/upload'
+    : 'http://127.0.0.1:8000/api/meetings/upload');
+  document.getElementById('apiTarget').textContent = API_URL;
+
+  // ---- element refs ----
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const fileRow = document.getElementById('fileRow');
+  const fileName = document.getElementById('fileName');
+  const fileSize = document.getElementById('fileSize');
+  const clearBtn = document.getElementById('clearBtn');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+  const progressLine = document.getElementById('progressLine');
+  const progressText = document.getElementById('progressText');
+  const errorBox = document.getElementById('errorBox');
+  const statusPill = document.getElementById('statusPill');
+  const statusText = document.getElementById('statusText');
+  const results = document.getElementById('results');
+
+  let selectedFile = null;
+
+  function setStatus(mode, text) {
+    statusPill.className = 'status ' + mode;
+    statusText.textContent = text;
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function pickFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    fileName.textContent = file.name;
+    fileSize.textContent = formatBytes(file.size);
+    fileRow.classList.add('show');
+    errorBox.classList.remove('show');
+    results.classList.remove('show');
+    setStatus('idle', 'Ready to analyze');
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => pickFile(e.target.files[0]));
+
+  ['dragenter', 'dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); })
+  );
+  ['dragleave', 'drop'].forEach(evt =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove('dragover'); })
+  );
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) pickFile(file);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    selectedFile = null;
+    fileInput.value = '';
+    fileRow.classList.remove('show');
+    results.classList.remove('show');
+    setStatus('idle', 'Waiting for a recording');
+  });
+
+  // ---- staged progress copy (real network progress isn't exposed by fetch,
+  // so these messages advance on a timer to reflect the pipeline's real steps) ----
+  const stages = [
+    'Uploading audio…',
+    'Transcribing with Sarvam…',
+    'Extracting decisions & action items…',
+    'Almost there…'
+  ];
+
+  analyzeBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    analyzeBtn.disabled = true;
+    clearBtn.disabled = true;
+    errorBox.classList.remove('show');
+    results.classList.remove('show');
+    progressLine.classList.add('show');
+    setStatus('busy', 'Working');
+
+    let stageIndex = 0;
+    progressText.textContent = stages[0];
+    const stageTimer = setInterval(() => {
+      stageIndex = Math.min(stageIndex + 1, stages.length - 1);
+      progressText.textContent = stages[stageIndex];
+    }, 3500);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const res = await fetch(API_URL, { method: 'POST', body: formData });
+
+      if (!res.ok) {
+        const body = await res.text();
+        if (/<!DOCTYPE html>/i.test(body) || /page not found/i.test(body)) {
+          throw new Error(
+            'Upload never reached FastAPI (got an HTML 404). Open http://127.0.0.1:8000 in your browser and analyze from there — not a preview, Netlify URL, or the HTML file.'
+          );
+        }
+        throw new Error(`Server returned ${res.status}: ${body.slice(0, 300)}`);
+      }
+
+      const data = await res.json();
+      renderResults(data);
+      setStatus('done', 'Minutes ready');
+    } catch (err) {
+      console.error(err);
+      errorBox.textContent = 'Something went wrong: ' + err.message;
+      errorBox.classList.add('show');
+      setStatus('error', 'Could not process that file');
+    } finally {
+      clearInterval(stageTimer);
+      progressLine.classList.remove('show');
+      analyzeBtn.disabled = false;
+      clearBtn.disabled = false;
+    }
+  });
+
+  function fillList(ulEl, items, emptyText) {
+    ulEl.innerHTML = '';
+    if (!items || items.length === 0) {
+      const li = document.createElement('li');
+      li.style.color = 'var(--text-muted)';
+      li.style.borderLeft = 'none';
+      li.style.background = 'transparent';
+      li.textContent = emptyText;
+      ulEl.appendChild(li);
+      return;
+    }
+    items.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item;
+      ulEl.appendChild(li);
+    });
+  }
+
+  function renderResults(data) {
+    // Note: the backend's response keys are used exactly as returned,
+    // including "transctipt" (not "transcript") and "decions" (not "decisions").
+    const analysis = data.analysis || {};
+    const transcript = data.transctipt || data.transcript || '';
+
+    document.getElementById('resultFileTag').textContent = selectedFile ? selectedFile.name : '';
+    document.getElementById('summaryText').textContent = analysis.summary || 'No summary returned.';
+
+    const decisionLine = document.getElementById('decisionLine');
+    if (analysis.decions) {
+      document.getElementById('decisionText').textContent = analysis.decions;
+      decisionLine.style.display = 'flex';
+    } else {
+      decisionLine.style.display = 'none';
+    }
+
+    fillList(document.getElementById('actionList'), analysis.action_items, 'No action items identified.');
+    fillList(document.getElementById('riskList'), analysis.risk_blockers, 'No risks or blockers flagged.');
+    fillList(document.getElementById('questionList'), analysis.unsolved_questions, 'No open questions.');
+
+    document.getElementById('actionCount').textContent = (analysis.action_items || []).length || '';
+    document.getElementById('riskCount').textContent = (analysis.risk_blockers || []).length || '';
+    document.getElementById('questionCount').textContent = (analysis.unsolved_questions || []).length || '';
+    document.getElementById('participantCount').textContent = (analysis.participants || []).length || '';
+
+    const chips = document.getElementById('participantChips');
+    chips.innerHTML = '';
+    (analysis.participants || []).forEach(p => {
+      const span = document.createElement('span');
+      span.className = 'chip';
+      span.textContent = p;
+      chips.appendChild(span);
+    });
+    if (!analysis.participants || analysis.participants.length === 0) {
+      const span = document.createElement('span');
+      span.style.color = 'var(--text-muted)';
+      span.style.fontSize = '14px';
+      span.textContent = 'No participants identified.';
+      chips.appendChild(span);
+    }
+
+    document.getElementById('transcriptBody').textContent = transcript || 'No transcript returned.';
+
+    results.classList.add('show');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  const transcriptToggle = document.getElementById('transcriptToggle');
+  const transcriptBody = document.getElementById('transcriptBody');
+  transcriptToggle.addEventListener('click', () => {
+    transcriptToggle.classList.toggle('open');
+    transcriptBody.classList.toggle('show');
+  });
+</script>
+</body>
+</html>
